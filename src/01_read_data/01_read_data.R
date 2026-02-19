@@ -1,10 +1,21 @@
-orderly2::orderly_artefact('Raw data','Full_data.csv')
-orderly2::orderly_shared_resource('data')
+orderly::orderly_artefact(description='Raw data',files='Full_data.csv')
+orderly::orderly_artefact(description='Subsets data',files=c("age_disaggregated_4corr_2017.csv",
+                                                             "age_disaggregated_4corr_2022.csv",
+                                                             "age_disaggregated_22to24.csv"))
+
+orderly::orderly_shared_resource('data')
+orderly::orderly_shared_resource('data/dhs_dates.xlsx')
+
+dhs_dates <- read_xlsx('data/dhs_dates.xlsx')
 
 ###Updated data March 2023 - Not disaggregated by age###
 #### read in ANC data ##
-Full_data_2016<-read_excel("data/ANC_Data_Compiled.xlsx",sheet="2016_2019")
-Full_data_2020<-read_excel("data/ANC_Data_Compiled.xlsx",sheet="2020_2021")
+Full_data_2016<-read_excel("data/ANC_Data_Compiled.xlsx",sheet="2016_2019")%>%
+  mutate(HF=toupper(HF))%>%
+  mutate(HF=gsub('  +',' ',HF))
+Full_data_2020<-read_excel("data/ANC_Data_Compiled.xlsx",sheet="2020_2021")%>%
+  mutate(HF=toupper(HF))%>%
+  mutate(HF=gsub('  +',' ',HF))
 
 names(Full_data_2016)[5]<-"Month"
 names(Full_data_2016)[6]<-"Before_12wk"
@@ -59,6 +70,8 @@ Full_data_2020_count <- left_join(Full_data_2020,month_count_2020, by=c('Region'
 
 ##Age disaggregated data 2014 to 2017
 age_split_14to15 <- read.csv("data/anc2014_17.csv") %>%
+  mutate(Health_facility=toupper(Health_facility))%>%
+  mutate(Health_facility=gsub('  +',' ',Health_facility))%>%
   rename(HF='Health_facility',
          Before_12wk_lt20='ANCLT12LT20',
          After_12wk_lt20='ANCGE12LT20',
@@ -92,18 +105,73 @@ age_split_14to15 <- read.csv("data/anc2014_17.csv") %>%
     Anaemia = NA,
     Month = match(Month, month.name)
   )%>%
+  mutate(Council = case_when(Council == 'Kilombero District Council' ~ 'Mlimba District Council',
+                             Council == 'Lindi District Council' ~ 'Mtama District Council',
+                             Council == 'Mpanda District Council' ~ 'Tanganyika District Council',
+                             .default = Council))%>%
   group_by_all()%>%
   filter(row_number()==1)%>%
   ungroup()
+
+
 
 month_count_14to15 <- age_split_14to15 %>%
   group_by(Region,Council,HF,Year,Month)%>%
   summarise(count_repeat=n())%>%
   arrange(Region,Council,HF,Year,Month)
 Full_data_14to15_count <- left_join(age_split_14to15,month_count_14to15, by=c('Region','Council','HF','Year','Month'))
+str(dhs_dates)
+
+dhs_dates_2017 <- c(as.yearmon(as.Date(dhs_dates$Start)[1]),as.yearmon(as.Date(dhs_dates$End)[1]))
+
+age_disaggregated_4corr_2017 <- read.csv("data/anc2014_17.csv") %>%
+  mutate(Health_facility=toupper(Health_facility))%>%
+  mutate(Health_facility=gsub('  +',' ',Health_facility))%>%
+  rename(HF='Health_facility',
+         Before_12wk_lt20='ANCLT12LT20',
+         After_12wk_lt20='ANCGE12LT20',
+         Before_12wk_ge20='ANCLT12GE20',
+         After_12wk_ge20='ANCGE12GE20',
+         ANC_test_lt20='RDTLT20',
+         ANC_test_ge20='RDTGE20',
+         ANC_pos_lt20='MALLT20',
+         ANC_pos_ge20='MALGE20',
+         llin_provided_lt20='LLINLT20',
+         llin_provided_ge20='LLINGE20',
+         ipt2_provided_lt20='IPTp2LT20',
+         ipt2_provided_ge20='IPTp2GE20',
+         ipt3_provided_lt20='IPTp3LT20',
+         ipt3_provided_ge20='IPTp3GE20',
+         ANC_attendance_total = 'ANC',
+         ANC_pos = 'Mal',
+         ANC_test = 'RDT'
+         )%>%
+  mutate(yearmon=as.yearmon(paste0(Year,"-",Month),"%Y-%B"))%>%
+  filter(yearmon >= dhs_dates_2017[1] & yearmon <= dhs_dates_2017[2])%>%
+  mutate(
+    Before_12wk = Before_12wk_lt20 + Before_12wk_ge20,
+    After_12wk = After_12wk_lt20 + After_12wk_ge20,
+    ANC_re_ad = NA,
+    llin_provided = llin_provided_lt20 + llin_provided_ge20,
+    ipt2_provided = ipt2_provided_lt20 + ipt2_provided_ge20,
+    ipt3_provided = ipt3_provided_lt20 + ipt3_provided_ge20,
+    Total_re_ad = NA,
+    ipt4_provided = NA,
+    Hb_test = NA,
+    Anaemia = NA,
+    Month = match(Month, month.name)
+  )%>%
+  group_by_all()%>%
+  filter(row_number()==1)%>%
+  ungroup()
+
+write.csv(age_disaggregated_4corr_2017,"age_disaggregated_4corr_2017.csv")
+
 
 #Age disaggregated 2022-2024
-Full_data_2022<-read_excel("data/ANC data 080425.xlsx")
+Full_data_2022<-read_excel("data/ANC data 080425.xlsx")%>%
+  mutate(`Health Facility`=toupper(`Health Facility`))%>%
+  mutate(`Health Facility`=gsub('  +',' ',`Health Facility`))
 Full_data_2022_mod <- Full_data_2022%>%
   rename(HF='Health Facility',
          Council = 'District',
@@ -138,10 +206,93 @@ Full_data<-rbind(
   Full_data_2020_count%>%select(Region,Council,HF,Year,Month,count_repeat,Before_12wk,After_12wk,ANC_re_ad,Total_re_ad,ANC_test,ANC_pos,llin_provided,ipt2_provided,ipt3_provided,ipt4_provided,Hb_test,Anaemia),
   Full_data_2022_count%>%select(Region,Council,HF,Year,Month,count_repeat,Before_12wk,After_12wk,ANC_re_ad,Total_re_ad,ANC_test,ANC_pos,llin_provided,ipt2_provided,ipt3_provided,ipt4_provided,Hb_test,Anaemia)
 )
-
-
 write.csv(Full_data,"Full_data.csv")
-# names(Full_data)
+
+dhs_dates_2022 <- c(as.yearmon(as.Date(dhs_dates$Start)[2]),as.yearmon(as.Date(dhs_dates$End)[2]))
+
+age_disaggregated_4corr_2022 <- Full_data_2022%>%
+  rename(HF='Health Facility',
+         Council = 'District',
+         Month = 'periodname')%>%
+  mutate(ANC_re_ad = rowSums(pick(matches("ANC Wateja wa marudio .+$")),na.rm = TRUE),
+         ANC_test = rowSums(pick(matches("ANC Waliopimwa Malaria kutumia mRDT/BS .+$")),na.rm = TRUE),
+         ANC_pos = rowSums(pick(matches("ANC Waliogundulika Malaria positive .+$")),na.rm = TRUE),
+         llin_provided = rowSums(pick(matches("ANC Waliopewa LLIN .+$")),na.rm = TRUE),
+         ipt2_provided = rowSums(pick(matches("ANC Waliopewa IPT2 .+$")),na.rm = TRUE),
+         ipt3_provided = rowSums(pick(matches("ANC Waliopewa IPT3 .+$")),na.rm = TRUE),
+         ipt4_provided = rowSums(pick(matches("ANC Waliopewa IPT4 .+$")),na.rm = TRUE),
+         Hb_test = rowSums(pick(matches("ANC Idadi ya Wajawazito Waliopima wingi wa damu .+$")),na.rm = TRUE),
+         Anaemia = rowSums(pick(matches("ANC Upungufu mkubwa wa damu &amp;lt;8.5g/dl – Anaemia hudhurio la kwanza .+$")),na.rm = TRUE),
+         Before_12wk = rowSums(pick(matches("ANC Umri wa mimba chini ya wiki 12 .+$")),na.rm = TRUE),
+         After_12wk = rowSums(pick(matches("ANC Umri wa mimba wiki 12 au zaidi .+$")),na.rm = TRUE),
+         Total_re_ad = rowSums(pick(Before_12wk,After_12wk,ANC_re_ad),na.rm=TRUE),
+         Month = ifelse(Month %in% month.name,match(Month, month.name),Month)
+  )%>%
+  mutate(yearmon=as.yearmon(paste0(Year,"-",Month),"%Y-%m"))%>%
+  filter(yearmon >= dhs_dates_2022[1] & yearmon <= dhs_dates_2022[2])%>%
+  group_by_all()%>%
+  filter(row_number()==1)%>%
+  ungroup()
+
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Wateja wa marudio ", replacement = "ANC_re_ad_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Waliopimwa Malaria kutumia mRDT/BS ", replacement = "ANC_test_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Waliogundulika Malaria positive ", replacement = "ANC_pos_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Waliopewa LLIN ", replacement = "llin_provided_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Waliopewa IPT2 ", replacement = "ipt2_provided_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Waliopewa IPT3 ", replacement = "ipt3_provided_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Waliopewa IPT4 ", replacement = "ipt4_provided_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Idadi ya Wajawazito Waliopima wingi wa damu ", replacement = "Hb_test_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Upungufu mkubwa wa damu &amp;lt;8.5g/dl – Anaemia hudhurio la kwanza ", replacement = "Anaemia_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Umri wa mimba chini ya wiki 12 ", replacement = "Before_12wk_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = "ANC Umri wa mimba wiki 12 au zaidi ", replacement = "After_12wk")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = " - ", replacement = "_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = " -", replacement = "_")
+names(age_disaggregated_4corr_2022) <- gsub(x = names(age_disaggregated_4corr_2022), pattern = ">=35 yrs", replacement = "ge35")
+
+write.csv(age_disaggregated_4corr_2022,"age_disaggregated_4corr_2022.csv")
+
+age_disaggregated_22to24 <- Full_data_2022%>%
+  rename(HF='Health Facility',
+         Council = 'District',
+         Month = 'periodname')%>%
+  mutate(ANC_re_ad = rowSums(pick(matches("ANC Wateja wa marudio .+$")),na.rm = TRUE),
+         ANC_test = rowSums(pick(matches("ANC Waliopimwa Malaria kutumia mRDT/BS .+$")),na.rm = TRUE),
+         ANC_pos = rowSums(pick(matches("ANC Waliogundulika Malaria positive .+$")),na.rm = TRUE),
+         llin_provided = rowSums(pick(matches("ANC Waliopewa LLIN .+$")),na.rm = TRUE),
+         ipt2_provided = rowSums(pick(matches("ANC Waliopewa IPT2 .+$")),na.rm = TRUE),
+         ipt3_provided = rowSums(pick(matches("ANC Waliopewa IPT3 .+$")),na.rm = TRUE),
+         ipt4_provided = rowSums(pick(matches("ANC Waliopewa IPT4 .+$")),na.rm = TRUE),
+         Hb_test = rowSums(pick(matches("ANC Idadi ya Wajawazito Waliopima wingi wa damu .+$")),na.rm = TRUE),
+         Anaemia = rowSums(pick(matches("ANC Upungufu mkubwa wa damu &amp;lt;8.5g/dl – Anaemia hudhurio la kwanza .+$")),na.rm = TRUE),
+         Before_12wk = rowSums(pick(matches("ANC Umri wa mimba chini ya wiki 12 .+$")),na.rm = TRUE),
+         After_12wk = rowSums(pick(matches("ANC Umri wa mimba wiki 12 au zaidi .+$")),na.rm = TRUE),
+         Total_re_ad = rowSums(pick(Before_12wk,After_12wk,ANC_re_ad),na.rm=TRUE),
+         Month = ifelse(Month %in% month.name,match(Month, month.name),Month)
+  )%>%
+  mutate(yearmon=as.yearmon(paste0(Year,"-",Month),"%Y-%m"))%>%
+  filter(yearmon >= dhs_dates_2022[1] & yearmon <= dhs_dates_2022[2])%>%
+  group_by_all()%>%
+  filter(row_number()==1)%>%
+  ungroup()
+
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Wateja wa marudio ", replacement = "ANC_re_ad_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Waliopimwa Malaria kutumia mRDT/BS ", replacement = "ANC_test_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Waliogundulika Malaria positive ", replacement = "ANC_pos_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Waliopewa LLIN ", replacement = "llin_provided_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Waliopewa IPT2 ", replacement = "ipt2_provided_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Waliopewa IPT3 ", replacement = "ipt3_provided_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Waliopewa IPT4 ", replacement = "ipt4_provided_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Idadi ya Wajawazito Waliopima wingi wa damu ", replacement = "Hb_test_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Upungufu mkubwa wa damu &amp;lt;8.5g/dl – Anaemia hudhurio la kwanza ", replacement = "Anaemia_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Umri wa mimba chini ya wiki 12 ", replacement = "Before_12wk_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = "ANC Umri wa mimba wiki 12 au zaidi ", replacement = "After_12wk")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = " - ", replacement = "_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = " -", replacement = "_")
+names(age_disaggregated_22to24) <- gsub(x = names(age_disaggregated_22to24), pattern = ">=35 yrs", replacement = "ge35")
+
+write.csv(age_disaggregated_22to24,"age_disaggregated_22to24.csv")
+
+#names(Full_data)
 #
 # #Full_data$Region_mb=Full_data$Region
 # # Full_data_new$region[Full_data_new$region=="Songwe Region"]="Mbeya Region"

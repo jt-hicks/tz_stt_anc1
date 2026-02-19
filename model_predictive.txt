@@ -1,0 +1,22 @@
+model
+{
+    for (i in 1:N) {
+        pos_child[i] ~ dbin(p_child[i], total_child[i])
+        pos_preg_pg[i] ~ dbin(p_preg_pg[i], total_preg_pg[i])
+        logit(p_preg_pg[i]) <- gamma_pg
+        pos_preg_mg[i] ~ dbin(p_preg_mg[i], total_preg_mg[i])
+        logit(p_preg_mg[i]) <- gamma_mg
+        logit(p_child[i]) <- alpha
+        +beta_pg * logit(p_preg_pg[i])
+        +beta_mg * logit(p_preg_mg[i])
+        +RE[i]
+        RE[i] ~ dnorm(0.00000E+00, tau_RE)
+    }
+    alpha ~ dnorm(0.00000E+00, 0.001)
+    beta_pg ~ dnorm(0.00000E+00, 0.001)
+    beta_mg ~ dnorm(0.00000E+00, 0.001)
+    gamma_pg ~ dnorm(-2, 1.5)
+    gamma_mg ~ dnorm(-2, 1.5)
+    tau_RE ~ dgamma(0.001, 0.001)
+    sigma_RE <- 1/sqrt(tau_RE)
+}
