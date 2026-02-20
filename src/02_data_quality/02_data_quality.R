@@ -3,8 +3,7 @@ orderly::orderly_dependency("01_read_data", quote(latest()),
 orderly::orderly_shared_resource('Province_grid.csv')
 orderly::orderly_shared_resource('theme_base.R')
 orderly::orderly_shared_resource('District edited Jan 2021')
-orderly::orderly_artefact(files=c('council_prevalence_map.png',
-                                   'alltested_council_map.png'),description = 'council-level maps')
+orderly::orderly_artefact(files=c('council_prevalence_map.png'),description = 'council-level maps')
 orderly::orderly_artefact(files=c('dqa_hf_remove_duplicates.rds',
                                    'dqa_hf_remove_duplicates_2017.rds',
                                    'dqa_hf_remove_duplicates_2022.rds'),
@@ -101,8 +100,7 @@ cleaned_dqametrics <- Full_data %>%
 ##Get proportion of health facilities with inconsistent reporting
 
 ##rows where data is available, but not first attendance
-cleaned_dqametrics_data_noANC1 <- cleaned_dqametrics %>%
-  filter(any_data_available & !first_att_available & ANC_re_ad!=Total_re_ad)
+# cleaned_dqametrics_data_noANC1 removed - dataframe created but never used downstream
 
 dqa_hf_remove_missing <- cleaned_dqametrics%>%
   group_by(Region,Council,HF)%>%
@@ -219,7 +217,6 @@ dqa_hf <- dqa_hf_remove_duplicates %>%
   mutate(across(sum_not_all_tested:sum_illogical_posGEtest, ~ ./num_months_with_firstatt, .names = '{.col}_prop'))%>%
   ungroup()
 
-summary(dqa_hf$proportion_months_with_data,by= dqa_hf$Region)
 
 
 ##Calculate by region the monthly proportion of health facilities with data
@@ -246,23 +243,7 @@ dqa_hf_end_date_expected_reporting <- left_join(dqa_hf_start_date,dqa_hf_end_dat
   mutate(count_diff = count_start-count_end,
          cumulative = cumsum(count_diff))
 
-##For each region, calculate the monthly number of health facilities expected to report based on start_data_collection and end_data_collection
-dqa_region_expected_reporting <- dqa_hf%>%
-  group_by(Region)%>%
-  summarise(total_hf = n())%>%
-  ungroup()%>%
-  tidyr::crossing(yearmon=yearmon_sequence)%>%
-  left_join(dqa_hf_start_date,by=join_by(Region==Region))%>%
-  left_join(dqa_hf_end_date_expected_reporting,by=join_by(yearmon==start_data_collection))%>%
-  arrange(Region,yearmon)%>%
-  group_by(Region)%>%
-  mutate(count_end = lag(count_end))%>%
-  mutate(count_end = ifelse(is.na(count_end),0,count_end))%>%
-  mutate(count_diff = count_start-count_end,
-         cumulative = cumsum(count_diff),
-         expected_hf_reporting = total_hf - cumulative)%>%
-  select(Region,yearmon,expected_hf_reporting)
-
+# Removed unused dataframe: dqa_region_expected_reporting
 
 dqa_df_total_monthly <- dqa_hf_remove_duplicates%>%
   group_by(yearmon)%>%
@@ -408,7 +389,7 @@ subset_reporting_long_region <- dqa_df_region_monthly%>%
   mutate(name=factor(name,levels=c('num_hf_with_firstatt','num_hf_with_test','prop_anymalariatests','prop_expected_with_firstatt'),labels=c('Any ANC1 attendance','Any malaria tests','Proportion of ANC1 facilities testing for malaria','Proportion of ANC1 facilities reporting attendance')),
          region = gsub(' Region','',Region))
 
-range(subset_reporting_long[subset_reporting_long$name=='Any ANC1 attendance',]$value)
+
 hf_data_count <- ggplot(subset_reporting_long)+
   geom_line(aes(x=as.Date(yearmon),y=value,color=name),linewidth=1.4)+
   #scale_color_
@@ -424,102 +405,12 @@ hf_data_count <- ggplot(subset_reporting_long)+
 
 ggsave(hf_data_count,file='hf_count.png',units='in',height=4,width = 5)
 
-hf_data_prop <- ggplot(subset_reporting_long_region%>%filter(name=='Proportion of ANC1 facilities testing for malaria'))+
-  geom_line(aes(x=as.Date(yearmon),y=value,group=Region),color='darkgrey',linewidth=0.8,alpha=0.6)+
-  geom_line(data=dqa_df_total_monthly,
-            aes(x=as.Date(yearmon),y=prop_anymalariatests),color='black',linewidth=1.2)+
-  #scale_color_
-  # scale_color_brewer(palette='Dark2')+
-  scale_x_date(date_breaks='2 years',date_labels="'%y")+
-  scale_y_continuous(limits=c(0,1),expand = c(0,0))+
-  guides(colour = guide_legend(nrow = 2)) +
-  labs(y='Proportion of\nANC1 health facilities\nreporting malaria tests')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-
-ggsave(hf_data_prop,file='hf_prop.png',units='in',height=4,width = 5)
-
-hf_firstatt_data_prop <- ggplot(subset_reporting_long_region%>%filter(name=='Proportion of ANC1 facilities reporting attendance'))+
-  geom_line(aes(x=as.Date(yearmon),y=value,group=Region),color='darkgrey',linewidth=0.8,alpha=0.6)+
-  # geom_line(data=dqa_df_total_monthly,
-  #           aes(x=as.Date(yearmon),y=prop_anymalariatests),color='black',linewidth=1.2)+
-  #scale_color_
-  # scale_color_brewer(palette='Dark2')+
-  scale_x_date(date_breaks='2 years',date_labels="'%y")+
-  scale_y_continuous(limits=c(0,1),expand = c(0,0))+
-  guides(colour = guide_legend(nrow = 2)) +
-  labs(y='Proportion of\nANC1 health facilities\nreporting ANC1 attendance')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-
 province_grid<-read.csv("Province_grid.csv") %>%
   mutate(Region=NAME_1,
          code=NAME_1,
          name=NAME_1)
 
-hf_data_prop_region <- ggplot(subset_reporting_long_region%>%filter(name=='Proportion of ANC1 facilities testing for malaria'))+
-  geom_line(aes(x=as.Date(yearmon),y=value,group=Region),color='black',linewidth=0.8,alpha=1)+
-  # geom_line(data=dqa_df_total_monthly,
-  #           aes(x=as.Date(yearmon),y=prop_anymalariatests),color='black',linewidth=1.2)+
-  #scale_color_
-  # scale_color_brewer(palette='Dark2')+
-  geom_hline(yintercept = 0.95,linetype='dashed',color='darkgrey')+
-  scale_x_date(date_breaks='2 years',date_labels="'%y")+
-  scale_y_continuous(limits=c(0,1),expand = c(0,0))+
-    facet_geo(~ region, grid = province_grid%>%
-                select(row,col,code,name))+
-  guides(colour = guide_legend(nrow = 2)) +
-  labs(y='Proportion of\nANC1 health facilities\nreporting malaria tests')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-
-hf_firstatt_data_prop_byregion <- ggplot(subset_reporting_long_region%>%filter(name=='Proportion of ANC1 facilities reporting attendance'))+
-  geom_line(aes(x=as.Date(yearmon),y=value,group=Region),color='black',linewidth=1)+
-  # geom_line(data=dqa_df_total_monthly,
-  #           aes(x=as.Date(yearmon),y=prop_anymalariatests),color='black',linewidth=1.2)+
-  #scale_color_
-  # scale_color_brewer(palette='Dark2')+
-  scale_x_date(date_breaks='2 years',date_labels="'%y")+
-  scale_y_continuous(limits=c(0,1),expand = c(0,0))+
-  coord_cartesian(ylim=c(0.75,1))+
-  facet_geo(~ region, grid = province_grid%>%
-              select(row,col,code,name))+
-  guides(colour = guide_legend(nrow = 2)) +
-  labs(y='Proportion of\nANC1 health facilities\nreporting ANC1 attendance')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-
-##Subset for attendance rates for plotting by month
-subset_attendance_long <- dqa_df_total_monthly%>%
-  select(yearmon,total_first_att_sum,ANC_re_ad_sum)%>%
-  tidyr::pivot_longer(-c(yearmon))%>%
-  mutate(name=factor(name,levels=c('total_first_att_sum','ANC_re_ad_sum'),labels=c('ANC1','ANC2+')))
-
-hf_att_count <- ggplot(subset_attendance_long)+
-  geom_line(aes(x=as.Date(yearmon),y=value/10000,color=name))+
-  scale_color_brewer(palette='Dark2')+
-  scale_x_date(date_breaks='year',date_labels="'%y")+
-  scale_y_continuous(limits=c(0,(max(subset_attendance_long$value,na.rm=TRUE)/10000+5)),expand = c(0,0))+
-  labs(y='Number of Women (x10,000)')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-ggsave(hf_att_count,file='hf_attendance.png',units='in',height=4,width = 5)
-
-##Subset for intervention distribution rates for plotting by month
-subset_int_long <- dqa_df_total_monthly%>%
-  select(yearmon,sum_llin_provided:sum_ipt4_provided)%>%
-  tidyr::pivot_longer(-c(yearmon))%>%
-  mutate(name=factor(name,levels=c('sum_llin_provided','sum_ipt2_provided','sum_ipt3_provided','sum_ipt4_provided'),labels=c('LLIN','IPTp2','IPTp3','IPTp4')))
-hf_int_count <- ggplot(subset_int_long)+
-  geom_line(aes(x=as.Date(yearmon),y=value/10000,color=name))+
-  scale_color_brewer(palette='Dark2')+
-  scale_x_date(date_breaks='year',date_labels="'%y")+
-  scale_y_continuous(limits=c(0,(max(subset_int_long$value,na.rm=TRUE)/10000+5)),expand = c(0,0))+
-  labs(y='Number Nets/Doses Provided (x10,000)')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-ggsave(hf_int_count,file='hf_intervention.png',units='in',height=4,width = 5)
-
+# Removed unused plots: hf_firstatt_data_prop, hf_data_prop_region, hf_firstatt_data_prop_byregion
 ##Subset for proportion of health facilities testing all women for plotting by month
 subset_illogical_prop_long <- dqa_df_total_monthly%>%
   select(yearmon,sum_not_all_tested_prop,sum_not_all_tested,num_hf_with_firstatt)%>%
@@ -562,55 +453,42 @@ subset_illogical_prop_region_long <- dqa_df_region_monthly%>%
   select(Region,yearmon,sum_not_all_tested_prop)%>%
   mutate(all_tested_prop = 1-sum_not_all_tested_prop,
          region = gsub(' Region','',Region))
-hf_alltested_count_region <- ggplot(subset_illogical_prop_region_long)+
-  geom_line(aes(x=as.Date(yearmon),y=all_tested_prop,group=region),color='darkgrey',linewidth=0.8,alpha=0.3)+
-  geom_line(data=subset_illogical_prop_long,aes(x=as.Date(yearmon),y=all_tested_prop),color=colorblindr::palette_OkabeIto[5],linewidth=1.2)+
-  geom_hline(yintercept = 0.9,linetype='dashed',color='black',linewidth=1)+
-  scale_x_date(date_breaks='2 years',date_labels="'%y")+
-  scale_y_continuous(breaks=c(0,0.25,0.5,0.75,0.9,1.0),limits=c(0,1),expand = c(0,0))+
-  labs(y='Proportion of\nhealth facilities')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-ggsave(hf_alltested_count_region,file='hf_alltested_region.png',units='in',height=4,width = 5)
+# hf_alltested_count_region <- ggplot(subset_illogical_prop_region_long)+
+#   geom_line(aes(x=as.Date(yearmon),y=all_tested_prop,group=region),color='darkgrey',linewidth=0.8,alpha=0.3)+
+#   geom_line(data=subset_illogical_prop_long,aes(x=as.Date(yearmon),y=all_tested_prop),color=colorblindr::palette_OkabeIto[5],linewidth=1.2)+
+#   geom_hline(yintercept = 0.9,linetype='dashed',color='black',linewidth=1)+
+#   scale_x_date(date_breaks='2 years',date_labels="'%y")+
+#   scale_y_continuous(breaks=c(0,0.25,0.5,0.75,0.9,1.0),limits=c(0,1),expand = c(0,0))+
+#   labs(y='Proportion of\nhealth facilities')+
+#   theme(axis.title.x = element_blank(),
+#         legend.title = element_blank())
+# ggsave(hf_alltested_count_region,file='hf_alltested_region.png',units='in',height=4,width = 5)
 
-hf_alltested_count_byregion <- ggplot(subset_illogical_prop_region_long[subset_illogical_prop_region_long$yearmon>=as.yearmon('Jan 2018'),])+
-  geom_line(aes(x=as.Date(yearmon),y=all_tested_prop),color=colorblindr::palette_OkabeIto[5],linewidth=0.8)+
-  geom_hline(yintercept = 0.9,linetype='dashed',color='black')+
-  scale_x_date(date_breaks='2 years',date_labels="'%y")+
-  scale_y_continuous(breaks=c(0.8,0.85,0.9,0.95,1.0),expand = c(0,0))+
-  coord_cartesian(ylim=c(0.8,1.0))+
-  facet_geo(~ region, grid = province_grid%>%
-              select(row,col,code,name))+
-  labs(y='Proportion of\nhealth facilities')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-colorblindr::palette_OkabeIto
+# Removed unused plot: hf_alltested_count_byregion
+
+# colorblindr::palette_OkabeIto
 #"#E69F00" "#56B4E9" "#009E73" "#F0E442" "#0072B2" "#D55E00" "#CC79A7" "#999999"
+
+##For each region, identify the date at which 90% of facilities were testing
+##all women
+##Calculate date at which 90% of facilities and calculate length of time since
+##January 2014
+dqa_region_alltested_90 <- dqa_df_region_monthly%>%
+  select(Region,yearmon,sum_not_all_tested_prop)%>%
+  mutate(all_tested_prop = 1-sum_not_all_tested_prop)%>%
+  filter(all_tested_prop>=0.9)%>%
+  group_by(Region)%>%
+  summarise(date_90alltested = min(yearmon))%>%
+  ungroup()%>%
+  mutate(months_since_jan2014_90alltested = interval(ymd('2014-01-01'),date_90alltested)%/%months(1))
+
 ##Heatmap where x-axis is month and y-axis is region showing proportion of facilities
 ##testing all women, with regions ordered by date at which 90% of facilities were testing
 ##all women with a diverging color scale where breakpoint is at 90% (using scale_fill_distiller(direction=1,palette = 'YlGnBu'))
 dqa_region_alltested_90_order <- dqa_region_alltested_90%>%
   arrange(months_since_jan2014_90alltested)%>%
   mutate(Region=factor(Region,levels=Region))
-hf_alltested_heatmap <- ggplot(dqa_df_region_monthly)+
-  geom_raster(aes(x=yearmon,y=factor(Region,levels=dqa_region_alltested_90_order$Region),
-                fill=1-sum_not_all_tested_prop),interpolate=FALSE)+
-  geom_raster(data=dqa_region_alltested_90_order, aes(x=as.Date(date_90alltested),y=factor(Region,levels=Region)),
-                  fill='black',interpolate=FALSE)+
-  scale_fill_gradient2(
-    limits   = c(0.7, 1),
-    midpoint = 0.9,
-    low      = "#ef8a62",  # < 0.9
-    mid      = "white",    # = 0.9
-    high     = "#2166ac",  # > 0.9
-    breaks   = seq(0, 1, by = 0.1),
-    oob      = scales::squish
-  )+
-  geom_segment(data = dqa_region_alltested_90, aes(x = as.Date(dqa_alltested_90), xend = as.Date(dqa_alltested_90), y = Region, yend = Region), color = "black") +
-  scale_x_date(date_breaks='2 years',date_labels="'%y",expand = c(0,0))+
-  labs(y='Region',fill='Proportion of\nhealth facilities')+
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
+# Removed unused plot: hf_alltested_heatmap
 
 ##Convert yearmon to an index so that raster is plotted at regular intervals
 ##but x-axis labels are still yearmon
@@ -662,68 +540,11 @@ hf_alltested_heatmap_index <- ggplot(dqa_df_region_monthly_index)+
                    expand = c(0,0))+
   labs(y='Region',fill='Proportion of\nhealth facilities')+
   theme(axis.title.x = element_blank())
-hf_alltested_heatmap_index
-##For each region, identify the date at which 90% of facilities were testing
-##all women
-##Calculate date at which 90% of facilities and calculate length of time since
-##January 2014
-dqa_region_alltested_90 <- dqa_df_region_monthly%>%
-  select(Region,yearmon,sum_not_all_tested_prop)%>%
-  mutate(all_tested_prop = 1-sum_not_all_tested_prop)%>%
-  filter(all_tested_prop>=0.9)%>%
-  group_by(Region)%>%
-  summarise(date_90alltested = min(yearmon))%>%
-  ungroup()%>%
-  mutate(months_since_jan2014_90alltested = interval(ymd('2014-01-01'),date_90alltested)%/%months(1))
-##Plot as a kaplan meier curve
-hf_alltested_kaplanmeier <- ggplot(dqa_region_alltested_90)+
-  stat_ecdf(aes(x=date_90alltested),color=colorblindr::palette_OkabeIto[5],linewidth=1)+
-  # scale_x_continuous(breaks=seq(0,120,by=12),limits=c(0,120),expand = c(0,0))+
-  scale_y_continuous(breaks=seq(0,1,by=0.1),limits=c(0,1),expand = c(0,0))+
-  labs(y='Proportion of Regions')+
-  theme(legend.title = element_blank(),
-        axis.title.x = element_blank())
-
 
 ##Do the same calculation and kaplan meier plot but at the council level
-dqa_council_alltested_90 <- dqa_council_summ_monthly%>%
-  select(Council,yearmon,sum_not_all_tested_prop)%>%
-  mutate(all_tested_prop = 1-sum_not_all_tested_prop)%>%
-  filter(all_tested_prop>=0.9)%>%
-  group_by(Council)%>%
-  summarise(date_90alltested = min(yearmon))%>%
-  ungroup()%>%
-  mutate(months_since_jan2014_90alltested = interval(ymd('2014-01-01'),date_90alltested)%/%months(1))
-hf_council_alltested_kaplanmeier <- ggplot(dqa_council_alltested_90)+
-  stat_ecdf(aes(x=date_90alltested),color=colorblindr::palette_OkabeIto[5],linewidth=1)+
-  # scale_x_continuous(breaks=seq(0,120,by=12),limits=c(0,120),expand = c(0,0))+
-  scale_y_continuous(breaks=seq(0,1,by=0.1),limits=c(0,1),expand = c(0,0))+
-  labs(y='Proportion of Councils')+
-  theme(legend.title = element_blank(),
-        axis.title.x = element_blank())
-
-##At the council level but facet_geo by region
-dqa_council_alltested_90_byregion <- dqa_council_alltested_90%>%
-  left_join(dqa_hf_remove_duplicates%>%
-              select(Region,Council)%>%
-              distinct(),by='Council')%>%
-  mutate(region = gsub(' Region','',Region))
-hf_council_alltested_kaplanmeier_region <- ggplot(dqa_council_alltested_90_byregion)+
-  stat_ecdf(aes(x=date_90alltested),color=colorblindr::palette_OkabeIto[5],linewidth=0.8)+
-  # scale_x_continuous(breaks=seq(0,120,by=12),limits=c(0,120),expand = c(0,0))+
-  scale_y_continuous(breaks=seq(0,1,by=0.1),limits=c(0,1),expand = c(0,0))+
-  facet_geo(~ region, grid = province_grid%>%
-              select(row,col,code,name))+
-  labs(y='Proportion of Councils')+
-  theme(legend.title = element_blank(),
-        axis.title.x = element_blank())
-
-
-
-ggsave(hf_alltested_kaplanmeier,file='hf_alltested_kaplanmeier.png',units='in',height=4,width = 5)
-##Sumarise by year and council
-dqa_council_summ <- dqa_hf_remove_duplicates%>%
-  group_by(Region,Council,Year)%>%
+## Summarize by month and council for mapping
+dqa_council_summ_monthly <- dqa_hf_remove_duplicates%>%
+  group_by(Region,Council,yearmon)%>%
   summarise(num_hf_with_data = sum(any_data_available,na.rm = TRUE),
             num_hf_with_firstatt = sum(first_att_available,na.rm = TRUE),
             num_hf_with_test = sum(anc_test_available,na.rm = TRUE),
@@ -742,19 +563,6 @@ dqa_council_summ <- dqa_hf_remove_duplicates%>%
             sum_ipt4_provided = sum(ipt4_provided,na.rm=TRUE),
             sum_Hb_test = sum(Hb_test,na.rm=TRUE),
             sum_Anaemia = sum(Anaemia,na.rm=TRUE),
-            # sum_total_outlier = sum(total_outlier,na.rm = TRUE),
-            # sum_tested_outlier = sum(tested_outlier,na.rm = TRUE),
-            # sum_positive_outlier = sum(positive_outlier,na.rm = TRUE),
-            # sum_prev_outlier = sum(prev_outlier,na.rm = TRUE),
-            # sum_re_ad_outlier = sum(re_ad_outlier,na.rm = TRUE),
-            # sum_Before_12wk_outlier = sum(Before_12wk_outlier,na.rm = TRUE),
-            # sum_After_12wk_outlier= sum(After_12wk_outlier,na.rm = TRUE),
-            # sum_llin_provided_outlier= sum(llin_provided_outlier,na.rm = TRUE),
-            # sum_ipt2_provided_outlier= sum(ipt2_provided_outlier,na.rm = TRUE),
-            # sum_ipt3_provided_outlier= sum(ipt3_provided_outlier,na.rm = TRUE),
-            # sum_ipt4_provided_outlier= sum(ipt4_provided_outlier,na.rm = TRUE),
-            # sum_Hb_test_outlier= sum(Hb_test_outlier,na.rm = TRUE),
-            # sum_Anaemia_outlier= sum(Anaemia_outlier,na.rm = TRUE),
             sum_not_all_tested = sum(not_all_tested,na.rm = TRUE),
             sum_illogical_posGEtest = sum(illogical_posGEtest,na.rm = TRUE),
             sum_illogical_testGEattend = sum(illogical_testGEattend,na.rm = TRUE),
@@ -767,19 +575,21 @@ dqa_council_summ <- dqa_hf_remove_duplicates%>%
   mutate(across(c('num_hf_with_firstatt','num_hf_with_test','num_hf_with_hbtest'), ~ ./num_hf_with_data, .names = '{.col}_prop'))%>%
   mutate(across(sum_not_all_tested:sum_illogical_noattresults, ~ ./num_hf_with_data, .names = '{.col}_prop'))%>%
   mutate(all_tested_prop = 1-sum_not_all_tested_prop)%>%
-  ##https://kilomberodc.go.tz/storage/app/uploads/public/666/e74/217/666e74217547f998847056.pdf
-  # mutate(Council = ifelse(Council=='Kilombero District Council' & (Year == 2014 | Year == 2015),'Mlimba District Council',Council))%>%
-  # filter(!(Council=='Mlimba District Council' & (Year == 2014 | Year == 2015) & num_hf_with_data == 0))%>%
-  # ##https://en.wikipedia.org/wiki/Lindi_District,_Lindi
-  # mutate(Council = ifelse(Council=='Lindi District Council' & (Year == 2014 | Year == 2015),'Mtama District Council',Council))%>%
-  # filter(!(Council=='Mtama District Council' & (Year == 2014 | Year == 2015) & num_hf_with_data == 0))%>%
-  # ##https://katavi.go.tz/history
-  # mutate(Council = ifelse(Council=='Mpanda District Council' & (Year == 2014 | Year == 2015),'Tanganyika District Council',Council))%>%
-  # filter(!(Council=='Tanganyika District Council' & (Year == 2014 | Year == 2015) & num_hf_with_data == 0))%>%
   ungroup()
-# Summarize by month and council for mapping
-dqa_council_summ_monthly <- dqa_hf_remove_duplicates%>%
-  group_by(Region,Council,yearmon)%>%
+
+dqa_council_alltested_90 <- dqa_council_summ_monthly%>%
+  select(Council,yearmon,sum_not_all_tested_prop)%>%
+  mutate(all_tested_prop = 1-sum_not_all_tested_prop)%>%
+  filter(all_tested_prop>=0.9)%>%
+  group_by(Council)%>%
+  summarise(date_90alltested = min(yearmon))%>%
+  ungroup()%>%
+  mutate(months_since_jan2014_90alltested = interval(ymd('2014-01-01'),date_90alltested)%/%months(1))
+
+# Removed unused plots: hf_council_alltested_kaplanmeier, hf_council_alltested_kaplanmeier_region
+##Sumarise by year and council
+dqa_council_summ <- dqa_hf_remove_duplicates%>%
+  group_by(Region,Council,Year)%>%
   summarise(num_hf_with_data = sum(any_data_available,na.rm = TRUE),
             num_hf_with_firstatt = sum(first_att_available,na.rm = TRUE),
             num_hf_with_test = sum(anc_test_available,na.rm = TRUE),
@@ -843,10 +653,6 @@ dqa_council_summ4map <- merge(councils,dqa_council_summ,by='Council')%>%
   filter(Year %% 2 == 0)
 time_of_90testing4map <- left_join(councils,dqa_council_alltested_90,by='Council')
 
-dqa_council_summ%>%group_by(Year)%>%
-  summarise(testing_proportion = sum(ANC_test_sum_nonmissing,na.rm=TRUE)/sum(total_first_att_sum,na.rm=TRUE),
-            prevalence = sum(ANC_pos_sum,na.rm=TRUE)/sum(ANC_test_sum_nonmissing,na.rm=TRUE))
-
 prevalence_council <- ggplot()+
   geom_sf(data = dqa_council_summ4map, aes(fill=prevalence))+ # Regions layer
   geom_sf(data=regions, fill=NA,linewidth=0.3)+
@@ -865,45 +671,30 @@ prevalence_council <- ggplot()+
         legend.title = element_text(size=12),
         axis.text.x = element_blank(),
         axis.text.y = element_blank())
-prevalence_council
+
 ggsave(prevalence_council,file='council_prevalence_map.png',units='in',height=4,width = 10)
 saveRDS(dqa_council_summ4map,'dqa_council_summ4map.rds')
 
-alltested_council <- ggplot()+
-  geom_sf(data = dqa_council_summ4map, aes(fill=all_tested_prop))+ # Regions layer
-  geom_sf(data=regions, fill=NA,linewidth=0.3)+
-  # geom_sf(data = water_bodies_sf, color = "lightblue",fill="lightblue")+ # Overlay colored water bodies
-  #north(data = tz1 ,location = "topleft", scale = .1,symbol = 5)+ # North direction
-  # scalebar(data = tz1,dist = 150,transform = TRUE,model = "WGS84", # Scale bar
-  #          height = .03,dist_unit = "km",location = "bottomleft", nudge_x = 0.5)+# Remove coordinates and boundaries
-  scale_fill_distiller(direction=1,palette = 'YlGnBu')+
-  facet_wrap(.~Year)+
-  labs(fill='Proportion of health facilities')+
-  theme(legend.position = "bottom",
-        legend.key.width= unit(1, "cm"),
-        legend.key.height = unit(0.5,'cm'),
-        legend.text = element_text(size=10,margin = margin(t=3)),
-        legend.title = element_text(size=12),
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank())
-ggsave(alltested_council,file='alltested_council_map.png',units='in',height=4,width = 10)
+# alltested_council <- ggplot()+
+#   geom_sf(data = dqa_council_summ4map, aes(fill=all_tested_prop))+ # Regions layer
+#   geom_sf(data=regions, fill=NA,linewidth=0.3)+
+#   # geom_sf(data = water_bodies_sf, color = "lightblue",fill="lightblue")+ # Overlay colored water bodies
+#   #north(data = tz1 ,location = "topleft", scale = .1,symbol = 5)+ # North direction
+#   # scalebar(data = tz1,dist = 150,transform = TRUE,model = "WGS84", # Scale bar
+#   #          height = .03,dist_unit = "km",location = "bottomleft", nudge_x = 0.5)+# Remove coordinates and boundaries
+#   scale_fill_distiller(direction=1,palette = 'YlGnBu')+
+#   facet_wrap(.~Year)+
+#   labs(fill='Proportion of health facilities')+
+#   theme(legend.position = "bottom",
+#         legend.key.width= unit(1, "cm"),
+#         legend.key.height = unit(0.5,'cm'),
+#         legend.text = element_text(size=10,margin = margin(t=3)),
+#         legend.title = element_text(size=12),
+#         axis.text.x = element_blank(),
+#         axis.text.y = element_blank())
+# ggsave(alltested_council,file='alltested_council_map.png',units='in',height=4,width = 10)
 
-timing90tested_council <- ggplot()+
-  geom_sf(data = time_of_90testing4map, aes(fill=as.Date(date_90alltested)))+ # Regions layer
-  geom_sf(data=regions, fill=NA,linewidth=0.3)+
-  # geom_sf(data = water_bodies_sf, color = "lightblue",fill="lightblue")+ # Overlay colored water bodies
-  #north(data = tz1 ,location = "topleft", scale = .1,symbol = 5)+ # North direction
-  # scalebar(data = tz1,dist = 150,transform = TRUE,model = "WGS84", # Scale bar
-  #          height = .03,dist_unit = "km",location = "bottomleft", nudge_x = 0.5)+# Remove coordinates and boundaries
-  scale_fill_distiller(direction=1,palette = 'YlGnBu')+
-  labs(fill='First date when 90% or more\nhealth facilities\ntested all women')+
-  theme(legend.position = "bottom",
-        legend.key.width= unit(1, "cm"),
-        legend.key.height = unit(0.5,'cm'),
-        legend.text = element_text(size=10,margin = margin(t=3)),
-        legend.title = element_text(size=12),
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank())
+# Removed unused plot: timing90tested_council (created but never saved)
 
 design_layout <- "
 AABB
@@ -1225,10 +1016,6 @@ dqa_monthly_region_average <- dqa_df_region_monthly %>%
   filter(yearmon>=as.yearmon('Jan 2024'))%>%
   group_by(Region)%>%
   summarise(average_tested = median(ANC_test_sum_nonmissing))
-nrow(dqa_monthly_region_average)
-range(dqa_monthly_region_average$average_tested)
-mean(dqa_monthly_region_average$average_tested)
-median(dqa_monthly_region_average$average_tested)
 
 saveRDS(dqa_df_council_monthly,'dqa_df_council_monthly.rds')
 
@@ -1247,7 +1034,7 @@ SouthwestHighlands_zone<- c('Mbeya Region', 'Rukwa Region', 'Katavi Region', 'So
 Lake_zone<- c('Kagera Region', 'Mwanza Region', 'Geita Region', 'Mara Region', 'Simiyu Region', 'Shinyanga Region')
 Eastern_zone<- c('Dar Es Salaam Region', 'Pwani Region', 'Morogoro Region')
 
-dqa_monthly_brief <- dqa_monthly%>%
+dqa_monthly_brief <- dqa_council_summ_monthly%>%
   select(Region, Council, yearmon, ANC_pos_sum, ANC_test_sum_nonmissing)%>%
   rename(positive = ANC_pos_sum,
          tested = ANC_test_sum_nonmissing,
@@ -1266,10 +1053,7 @@ dqa_monthly_brief_average <- dqa_monthly_brief %>%
   filter(month>=as.yearmon('Jan 2024'))%>%
   group_by(Region, Council)%>%
   summarise(average_tested = median(tested))
-nrow(dqa_monthly_brief_average)
-range(dqa_monthly_brief_average$average_tested)
-mean(dqa_monthly_brief_average$average_tested)
-median(dqa_monthly_brief_average$average_tested)
+
 split_nested <- function(df, cols) {
   stopifnot(all(cols %in% names(df)))
   f <- function(d, i) {
@@ -1282,10 +1066,3 @@ split_nested <- function(df, cols) {
 
 dqa_monthly_nested <- split_nested(dqa_monthly_brief, c("Zone", "Region", "Council"))
 saveRDS(dqa_monthly_nested,'dqa_council_monthly_nested.rds')
-
-# lake_zone <- c('Kagera Region', 'Mwanza Region','Mara Region','Geita Region','Simiyu Region','Shinyanga Region')
-# ggplot(dqa_df_council_monthly%>%filter(Region%in%lake_zone&yearmon>=as.yearmon('Jan 2022')))+
-#   geom_line(aes(x=yearmon,y=prevalence,color=Council))+
-#   geom_line(data=dqa_df_region_monthly%>%filter(Region%in%lake_zone&yearmon>=as.yearmon('Jan 2022')),
-#             aes(x=yearmon,y=prevalence),linewidth=1)+
-#   facet_wrap(.~Region)
