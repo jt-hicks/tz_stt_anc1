@@ -7,6 +7,12 @@ orderly::orderly_shared_resource('addCIs.R')
 orderly::orderly_shared_resource('data/u5yo_prev_dhs_tanz_2017-2022.xlsx')
 orderly::orderly_shared_resource('data/dhs_dates.xlsx')
 orderly::orderly_shared_resource('data/paper_data_strat_G.xlsx')
+orderly::orderly_artefact(files=c('fig1_map_correlation_composite.png',
+                                   'fig1_detailed_maps_correlation.png',
+                                   'suppfig_full_correlation_range.png',
+                                   'suppfig1_council_maps_allyears.png',
+                                   'suppfig2_u5_vs_agegroups_correlation.png'),
+                           description = 'Manuscript figures: council prevalence maps and correlations')
 
 source('theme_base.R')
 source('addCIs.R')
@@ -113,10 +119,10 @@ all_ve$Region <- 'Van Eijk, et al.'
 all_ve$year <- as.factor('Van Eijk, et al.')
 
 dhs_anc_merged <- bind_rows(dhs_anc_merged,all_ve)
-dhs_anc_merged%>%
-  #mutate(year_char <- as.character(year))%>%
-  filter(as.character(year)!='Van Eijk, et al.')
-unique(dhs_anc_merged$year)
+# dhs_anc_merged%>%
+#   #mutate(year_char <- as.character(year))%>%
+#   filter(as.character(year)!='Van Eijk, et al.')
+# unique(dhs_anc_merged$year)
 all_ages_correlation <- ggplot(dhs_anc_merged%>%
                                  filter(as.character(year)!='Van Eijk, et al.'))+
   geom_abline(color='darkgrey',linetype='dashed',linewidth=1)+
@@ -306,6 +312,8 @@ mcmc_sim_summary <- dplyr::bind_rows(lapply(1:length(logodds_child),function(i){
 
 saveRDS(mcmc_sim_summary,'mcmc_sim_summary_stan.rds')
 
+mcmc_sim_summary <- readRDS('mcmc_sim_summary_stan.rds')
+
 colors_corr <- c(c(viridis(2,begin=0.2,end=0.8)),'#999999')
 
 grav <- ggplot(dhs_anc_merged)+
@@ -321,7 +329,7 @@ grav <- ggplot(dhs_anc_merged)+
   theme(legend.position = 'bottom',
       legend.title = element_blank())+
   labs(x='Cross-section Prevalence (<5 yo)',y='ANC Prevalence (all ages)')
-element
+
 grav_tz_zoom <- ggplot(dhs_anc_merged%>%filter(Region!='Van Eijk, et al.'))+
   geom_point(aes(x=mean,y=mean_total,col=year),size=3)+
   geom_errorbar(aes(x=mean,ymin=lower_total,ymax=upper_total,col=year),width=0)+
@@ -515,9 +523,10 @@ dqa_map <- readRDS('dqa_council_summ4map.rds')
 dqa_map_2024 <- dqa_map %>% filter(Year == 2024)
 
 # Create 2024 council prevalence map
+# Use YlOrRd palette to match manuscript style
 map_2024 <- ggplot(dqa_map_2024) +
   geom_sf(aes(fill = prevalence*100), color = 'white', size = 0.1) +
-  scale_fill_viridis_c(option = 'plasma', 
+  scale_fill_distiller(palette = 'YlOrRd', direction = 1,
                        name = 'Prevalence (%)',
                        limits = c(0, 20),
                        oob = squish,
@@ -530,14 +539,24 @@ map_2024 <- ggplot(dqa_map_2024) +
 
 # Use existing Stan/VE correlation composite (already created above as corr_composite)
 # Recreate grav_tz_zoom with better formatting for publication
-grav_tz_zoom_pub <- ggplot(dhs_anc_merged %>% filter(Region != 'Van Eijk, et al.')) +
+# Use OkabeIto palette to match manuscript style from 03_attendance_rate
+oi_palette <- colorblindr::palette_OkabeIto
+col_2017 <- oi_palette[1]  # First color
+col_2022 <- oi_palette[2]  # Second color
+col_VE <- oi_palette[8]    # Grey color for Van Eijk
+
+# Create main scatterplot (0-0.85) with zoom box annotation
+grav_tz_main <- ggplot(dhs_anc_merged) +
+  # Add zoom box rectangle
+  annotate('rect', xmin = 0, xmax = 0.35, ymin = 0, ymax = 0.35, 
+           fill = NA, color = 'black', linewidth = 1.2) +
   geom_point(aes(x = mean, y = mean_total, col = year), size = 3) +
   geom_errorbar(aes(x = mean, ymin = lower_total, ymax = upper_total, col = year), width = 0) +
   geom_errorbarh(aes(y = mean_total, xmin = lower, xmax = upper, col = year), height = 0) +
-  scale_color_manual(values = colors_corr[1:2], name = 'DHS Survey Year') +
+  scale_color_manual(values = c('2017' = col_2017, '2022' = col_2022, 'Van Eijk, et al.' = col_VE), name = 'DHS Survey Year') +
   scale_y_continuous(limits = c(0, 0.85), expand = c(0, 0)) +
   scale_x_continuous(limits = c(0, 0.85), expand = c(0, 0)) +
-  coord_cartesian(xlim = c(0, 0.30), ylim = c(0, 0.30)) +
+  coord_fixed(xlim = c(0, 0.85), ylim = c(0, 0.85), ratio = 1) +
   geom_abline(size = 0.8, linetype = 'dashed', color = 'grey30') +
   geom_ribbon(data = mcmc_sim_summary, 
               aes(x = prev_child, ymin = prev_preg_pg_lower, ymax = prev_preg_pg_upper), 
@@ -545,32 +564,261 @@ grav_tz_zoom_pub <- ggplot(dhs_anc_merged %>% filter(Region != 'Van Eijk, et al.
   geom_line(data = mcmc_sim_summary, 
             aes(x = prev_child, y = prev_preg_pg_median), 
             size = 1, color = 'black') +
+  labs(x = 'Under 5 Malaria Prevalence',
+       y = 'ANC1 Malaria Prevalence (All Ages)') +
+  guides(color = guide_legend(override.aes = list(alpha = 0))) +
+  theme(plot.margin = margin(15, 5, 5, 5),
+        legend.position = 'bottom',
+        legend.text = element_blank(),
+        legend.title = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 11),
+        plot.background = element_rect(fill = 'white', color = NA),
+        panel.background = element_rect(fill = 'white', color = NA))
+
+# Create zoomed inset scatterplot (0-0.35)
+grav_tz_inset <- ggplot(dhs_anc_merged) +
+  geom_point(aes(x = mean, y = mean_total, col = year), size = 3) +
+  geom_errorbar(aes(x = mean, ymin = lower_total, ymax = upper_total, col = year), width = 0) +
+  geom_errorbarh(aes(y = mean_total, xmin = lower, xmax = upper, col = year), height = 0) +
+  scale_color_manual(values = c('2017' = col_2017, '2022' = col_2022, 'Van Eijk, et al.' = col_VE), name = 'DHS Survey Year') +
+  scale_y_continuous(limits = c(0, 0.35), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 0.35), expand = c(0, 0)) +
+  coord_fixed(xlim = c(0, 0.35), ylim = c(0, 0.35), ratio = 1) +
+  geom_abline(size = 0.8, linetype = 'dashed', color = 'grey30') +
+  geom_ribbon(data = mcmc_sim_summary, 
+              aes(x = prev_child, ymin = prev_preg_pg_lower, ymax = prev_preg_pg_upper), 
+              alpha = 0.2, fill = 'grey50') +
+  geom_line(data = mcmc_sim_summary, 
+            aes(x = prev_child, y = prev_preg_pg_median), 
+            size = 1, color = 'black') +
+  labs(x = 'Under 5 Malaria Prevalence',
+       y = 'ANC1 Malaria Prevalence (All Ages)') +
+  theme(plot.margin = margin(5, 5, 5, 5),
+        legend.position = 'bottom',
+        legend.box = 'horizontal',
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 11),
+        plot.background = element_rect(fill = 'white', color = NA),
+        panel.background = element_rect(fill = 'white', color = NA))
+
+# Combine main and inset scatterplots vertically
+grav_tz_zoom_pub <- grav_tz_main / grav_tz_inset + 
+  plot_layout(heights = c(1, 1))
+
+##------------------------------------------------------------------------
+## Figure 1A: Detailed - Tanzania map with zoom boxes + regional maps + correlation
+##------------------------------------------------------------------------
+
+# Create full Tanzania map with zoom region boxes
+tz_full_map <- ggplot(dqa_map_2024) +
+  geom_sf(aes(fill = prevalence*100), color = 'white', size = 0.1) +
+  scale_fill_distiller(palette = 'YlOrRd', direction = 1,
+                       name = 'Prevalence (%)',
+                       limits = c(0, 20),
+                       oob = squish,
+                       breaks = seq(0, 20, 5)) +
+  labs(title = 'ANC1 Malaria Prevalence by Council (2024)') +
+  theme_void() +
+  theme(legend.position = 'bottom',
+        legend.key.width = unit(1.5, 'cm'),
+        plot.title = element_text(hjust = 0.5, face = 'bold', size = 12),
+        plot.background = element_rect(fill = 'white', color = NA),
+        panel.background = element_rect(fill = 'white', color = NA))
+
+# Define bounding boxes for zoom regions
+# Lake Victoria region: expanded to include more land to the south
+# Includes Kagera, Mwanza, Geita regions with buffer north of Tanzania border
+lake_victoria_bbox <- st_bbox(c(xmin = 30.3, ymin = -4, xmax = 35.5, ymax = -0.5))
+lake_victoria_box <- st_as_sfc(lake_victoria_bbox) %>% st_set_crs(st_crs(dqa_map_2024))
+
+# Southern zone: Mtwara focus with modest buffer
+southern_zone_bbox <- st_bbox(c(xmin = 37.2, ymin = -11.8, xmax = 40.7, ymax = -9.2))
+southern_zone_box <- st_as_sfc(southern_zone_bbox) %>% st_set_crs(st_crs(dqa_map_2024))
+
+# Add boxes to full Tanzania map
+tz_full_map_with_boxes <- tz_full_map +
+  geom_sf(data = lake_victoria_box, fill = NA, color = 'black', linewidth = 1.2) +
+  geom_sf(data = southern_zone_box, fill = NA, color = 'black', linewidth = 1.2) +
+  theme(plot.margin = margin(0, 0, 0, 0))
+
+# Create Lake Victoria zoomed map
+dqa_map_2024_lv <- dqa_map_2024 %>% 
+  st_intersection(lake_victoria_box)
+
+map_lv <- ggplot(dqa_map_2024_lv) +
+  geom_sf(aes(fill = prevalence*100), color = 'white', size = 0.1) +
+  scale_fill_distiller(palette = 'YlOrRd', direction = 1,
+                       name = 'Prevalence (%)',
+                       limits = c(0, 20),
+                       oob = squish,
+                       breaks = seq(0, 20, 5)) +
+  labs(title = 'Lake Zone') +
+  theme_void() +
+  theme(legend.position = 'none',
+        plot.title = element_text(hjust = 0.5, face = 'bold', size = 11),
+        plot.margin = margin(2, 1, 2, 2),
+        plot.background = element_rect(fill = 'white', color = NA),
+        panel.background = element_rect(fill = 'white', color = NA))
+        plot.background = element_rect(fill = 'white', color = NA),
+        panel.background = element_rect(fill = 'white', color = NA))
+
+# Create Southern Zone zoomed map
+dqa_map_2024_sz <- dqa_map_2024 %>% 
+  st_intersection(southern_zone_box)
+
+map_sz <- ggplot(dqa_map_2024_sz) +
+  geom_sf(aes(fill = prevalence*100), color = 'white', size = 0.1) +
+  scale_fill_distiller(palette = 'YlOrRd', direction = 1,
+                       name = 'Prevalence (%)',
+                       limits = c(0, 20),
+                       oob = squish,
+                       breaks = seq(0, 20, 5)) +
+  labs(title = 'Southern Zone') +
+  theme_void() +
+  theme(legend.position = 'none',
+        plot.title = element_text(hjust = 0.5, face = 'bold', size = 11),
+        plot.margin = margin(2, 2, 2, 1),
+        plot.background = element_rect(fill = 'white', color = NA),
+        panel.background = element_rect(fill = 'white', color = NA))
+
+# Arrange maps and correlation plot: Full map + zooms on left, scatterplots on right
+# Left: (A) Full TZ map / (B + C) Lake & Southern Zone maps
+# Right: (D) Zoomed out scatter / (E) Zoomed in scatter
+# Save individual panels and stitch with magick for precise alignment
+
+# Save individual panels
+ggsave('fig1_panel_A_tzmap.png', 
+       plot = tz_full_map_with_boxes, 
+       width = 5, height = 6, units = 'in', dpi = 300, bg = 'white')
+
+ggsave('fig1_panel_B_lakezone.png', 
+       plot = map_lv, 
+       width = 4, height = 3, units = 'in', dpi = 300, bg = 'white')
+
+ggsave('fig1_panel_C_southernzone.png', 
+       plot = map_sz, 
+       width = 4, height = 3, units = 'in', dpi = 300, bg = 'white')
+
+ggsave('fig1_panel_D_scatter_main.png', 
+       plot = grav_tz_main, 
+       width = 3.5, height = 3.5, units = 'in', dpi = 300, bg = 'white')
+
+ggsave('fig1_panel_E_scatter_inset.png', 
+       plot = grav_tz_inset, 
+       width = 3.5, height = 3.5, units = 'in', dpi = 300, bg = 'white')
+
+# Use magick to composite panels with precise alignment
+library(magick)
+
+# Read panels
+img_A <- magick::image_read('fig1_panel_A_tzmap.png')
+img_B <- magick::image_read('fig1_panel_B_lakezone.png')
+img_C <- magick::image_read('fig1_panel_C_southernzone.png')
+img_D <- magick::image_read('fig1_panel_D_scatter_main.png')
+img_E <- magick::image_read('fig1_panel_E_scatter_inset.png')
+
+# Add letter annotations
+img_A_labeled <- magick::image_annotate(
+  img_A, "A)", size = 40, color = "black", 
+  location = "+20+20", font = "sans", weight = 700
+)
+
+img_B_labeled <- magick::image_annotate(
+  img_B, "B)", size = 35, color = "black",
+  location = "+15+15", font = "sans", weight = 700
+)
+
+img_C_labeled <- magick::image_annotate(
+  img_C, "C)", size = 35, color = "black",
+  location = "+15+15", font = "sans", weight = 700
+)
+
+img_D_labeled <- magick::image_annotate(
+  img_D, "D)", size = 40, color = "black",
+  location = "+20+20", font = "sans", weight = 700
+)
+
+img_E_labeled <- magick::image_annotate(
+  img_E, "E)", size = 40, color = "black",
+  location = "+20+20", font = "sans", weight = 700
+)
+
+# Combine B and C horizontally
+# Combine B and C vertically (column 2)
+bc_column <- magick::image_append(c(img_B_labeled, img_C_labeled), stack = TRUE)
+
+# Combine D and E vertically (column 3)
+de_column <- magick::image_append(c(img_D_labeled, img_E_labeled), stack = TRUE)
+
+# Scale columns to match 1.5:1:1 width ratio
+# Get dimensions for scaling
+info_a <- magick::image_info(img_A_labeled)
+info_bc <- magick::image_info(bc_column)
+info_de <- magick::image_info(de_column)
+
+# Scale BC and DE to match the ratio (keeping A as base 1.5)
+bc_width <- as.integer(info_a$width / 1.5)
+de_width <- as.integer(info_a$width / 1.5)
+
+bc_column_scaled <- magick::image_scale(bc_column, paste0(bc_width, "x!"))
+de_column_scaled <- magick::image_scale(de_column, paste0(de_width, "x!"))
+
+# Combine all three columns horizontally (A | BC | DE)
+fig1_composite_final <- magick::image_append(c(img_A_labeled, bc_column_scaled, de_column_scaled), stack = FALSE)
+
+# Flatten with white background to remove any transparency
+fig1_composite_final <- magick::image_flatten(fig1_composite_final)
+
+# Save final composite
+magick::image_write(fig1_composite_final, path = 'fig1_map_correlation_composite.png')
+
+cat('Figure 1 (composite map + correlation) saved\n')
+
+##------------------------------------------------------------------------
+## Supplemental Figure 1: Non-zoomed Correlation Plot
+##------------------------------------------------------------------------
+
+# Create full prevalence range correlation plot for supplemental figure
+grav_tz_full <- ggplot(dhs_anc_merged) +
+  geom_point(aes(x = mean*100, y = mean_total*100, col = year), size = 3) +
+  geom_errorbar(aes(x = mean*100, ymin = lower_total*100, ymax = upper_total*100, col = year), width = 0) +
+  geom_errorbarh(aes(y = mean_total*100, xmin = lower*100, xmax = upper*100, col = year), height = 0) +
+  scale_color_manual(values = c('2017' = col_2017, '2022' = col_2022, 'Van Eijk, et al.' = col_VE), 
+                     name = 'Survey') +
+  scale_y_continuous(limits = c(0, 85), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 85), expand = c(0, 0)) +
+  geom_abline(size = 0.8, linetype = 'dashed', color = 'grey30') +
+  geom_ribbon(data = mcmc_sim_summary, 
+              aes(x = prev_child*100, ymin = prev_preg_pg_lower*100, ymax = prev_preg_pg_upper*100), 
+              alpha = 0.2, fill = 'grey50') +
+  geom_line(data = mcmc_sim_summary, 
+            aes(x = prev_child*100, y = prev_preg_pg_median*100), 
+            size = 1, color = 'black') +
   theme_minimal() +
   theme(legend.position = 'bottom',
         legend.title = element_blank()) +
-  labs(x = 'Under 5 Malaria Prevalence',
-       y = 'ANC1 Malaria Prevalence (All Ages)',
-       title = 'Correlation: U5 vs ANC1 Prevalence')
+  labs(x = 'U5 Malaria Prevalence (%)',
+       y = 'ANC1 Malaria Prevalence (%)',
+       title = 'Correlation: U5 vs ANC1 Prevalence (Full Range)')
 
-# Create composite figure: Map on left, correlation on right
-fig1_composite <- map_2024 + grav_tz_zoom_pub + 
-  plot_layout(ncol = 2, widths = c(1, 1.2)) +
-  plot_annotation(tag_levels = 'A', tag_suffix = ')')
+ggsave('suppfig_full_correlation_range.png', 
+       plot = grav_tz_full, 
+       width = 5, height = 5, units = 'in', dpi = 300)
 
-ggsave('fig1_map_correlation_composite.png', 
-       plot = fig1_composite, 
-       width = 12, height = 5, units = 'in', dpi = 300)
-
-cat('Figure 1 (composite map + correlation) saved\n')
+cat('Supplemental Figure - Full correlation plot saved\n')
 
 ##------------------------------------------------------------------------
 ## Supplemental Figure 1: Council Maps for All Years
 ##------------------------------------------------------------------------
 
 # Create faceted map showing all years
+# Use YlOrRd palette to match manuscript style
 supp_fig1_allyears <- ggplot(dqa_map) +
   geom_sf(aes(fill = prevalence*100), color = 'white', size = 0.05) +
-  scale_fill_viridis_c(option = 'plasma',
+  scale_fill_distiller(palette = 'YlOrRd', direction = 1,
                        name = 'Prevalence (%)',
                        limits = c(0, 20),
                        oob = squish,
@@ -633,6 +881,10 @@ dhs_anc_2022_long <- dhs_anc_merged_only2022 %>%
   ))
 
 # Create faceted correlation plot
+# Use RdYlBu palette to match manuscript style from 03_attendance_rate
+color_pallete_age <- RColorBrewer::brewer.pal(6,'RdYlBu')[2:6]
+names(color_pallete_age) <- c('15-19 years','20-24 years','25-29 years','30-34 years','35+ years')
+
 supp_fig2_age_corr <- ggplot(dhs_anc_2022_long, 
                              aes(x = mean_u5, y = prev_anc, color = age_group_label)) +
   geom_abline(color = 'grey50', linetype = 'dashed', linewidth = 0.5) +
@@ -642,7 +894,7 @@ supp_fig2_age_corr <- ggplot(dhs_anc_2022_long,
   geom_errorbarh(aes(xmin = lower_u5, xmax = upper_u5), 
                  linewidth = 0.5, height = 0, alpha = 0.7) +
   facet_wrap(~age_group_label, ncol = 3) +
-  scale_color_brewer(palette = 'Set2', guide = 'none') +
+  scale_color_manual(values = color_pallete_age, guide = 'none') +
   scale_x_continuous(limits = c(0, 0.35), expand = c(0, 0)) +
   scale_y_continuous(limits = c(0, 0.35), expand = c(0, 0)) +
   labs(x = 'Under 5 Malaria Prevalence (DHS 2022)',

@@ -1,0 +1,34 @@
+version: "1"
+
+packages:
+  - dplyr
+  - sf
+  - leaflet
+  - shiny
+  - plotly
+  - ggplot2
+
+parameters: {}
+
+dependencies:
+  create_diagnostic_dashboard:
+    files:
+      council_summary.rds:
+        - council_summary.rds
+      council_timeseries.rds:
+        - council_timeseries.rds
+      prevalence_comparison.rds:
+        - prevalence_comparison.rds
+      council_mcmc_diagnostics.rds:
+        - council_mcmc_diagnostics.rds
+      diagnostic_plot_index.rds:
+        - diagnostic_plot_index.rds
+
+artefacts:
+  - app: diag_dash_app.R
+  - council_summary: council_summary.rds
+  - council_timeseries: council_timeseries.rds
+  - prevalence_comparison: prevalence_comparison.rds
+  - council_mcmc_diagnostics: council_mcmc_diagnostics.rds
+  - diagnostic_plot_index: diagnostic_plot_index.rds
+  - diagnostic_plots: diagnostic_plots

@@ -1,0 +1,16 @@
+version: "1"
+
+packages:
+  - dplyr
+  - orderly2
+
+description: >
+  Compile results from all zones and regions into a single global dataframe.
+  Aggregates outputs from summarise_results tasks across all zone/region 
+  combinations.
+
+artefacts:
+  - global: global_results.rds
+  - posterior_sample: global_results_posterior_sample.rds
+  - csv: global_results.csv
+  - log: compilation_log.rds

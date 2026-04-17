@@ -1,0 +1,19 @@
+version: "1"
+
+packages:
+  - dplyr
+  - orderly2
+  - ggplot2
+  - reshape2
+
+description: >
+  Create a comprehensive diagnostics report for all MCMC runs.
+  Analyzes model fit and convergence from run_diagnostics outputs.
+
+artefacts:
+  - diagnostics: global_diagnostics.rds
+  - diag_csv: global_diagnostics.csv
+  - summary: summary_statistics.rds
+  - summary_csv: summary_statistics.csv
+  - plot_zone_png: variance_by_zone.png
+  - plot_region_png: variance_by_region.png

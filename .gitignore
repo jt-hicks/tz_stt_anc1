@@ -11,3 +11,42 @@ archive
 # ---^^^--- added by orderly ---^^^----------------
 data
 model_predictive.txt
+
+# Local infrastructure and large local assets (not for GitHub)
+hipercow/
+shared/District edited Jan 2021.zip
+
+# Generated figures
+*.png
+
+# Hold these newer analysis modules out of version control for now
+src/06_hf_distribution/
+src/07_lowprev_casestudy/
+src/08_smps_comp/
+src/09_program_story_figure/
+src/times_series_analysis/
+
+# OS/editor artefacts
+Thumbs.db
+
+# Batch/log outputs
+batch_*_log.csv
+batch_*_log.rds
+batch_missing_*.csv
+
+# Local scratch and ad hoc scripts/results
+tmp_*
+script.txt
+src/tmp/
+src/04_correlation/script.txt
+
+# 04_correlation generated outputs
+src/04_correlation/CODA*.txt
+src/04_correlation/inits*.txt
+src/04_correlation/log.txt
+src/04_correlation/log.odc
+src/04_correlation/run_full_*.rds
+src/04_correlation/loo_result_*.rds
+src/04_correlation/df_4_looplot_*.rds
+src/04_correlation/mcmc_sim_summary_stan.rds
+src/04_correlation/run_full_allageANC.html

@@ -3,20 +3,19 @@ model
     for (i in 1:N) {
         pos_child[i] ~ dbin(p_child[i], total_child[i])
         pos_preg_pg[i] ~ dbin(p_preg_pg[i], total_preg_pg[i])
-        logit(p_preg_pg[i]) <- gamma_pg
-        pos_preg_mg[i] ~ dbin(p_preg_mg[i], total_preg_mg[i])
-        logit(p_preg_mg[i]) <- gamma_mg
-        logit(p_child[i]) <- alpha
-        +beta_pg * logit(p_preg_pg[i])
-        +beta_mg * logit(p_preg_mg[i])
-        +RE[i]
-        RE[i] ~ dnorm(0.00000E+00, tau_RE)
+        logit(p_child[i]) <- log_odds_child[i]
+        logit(p_preg_pg[i]) <- log_odds_child[i] + log_OR_pp_v_c[i]
+        log_odds_child[i] ~ dnorm(av_lo_child, sigma_c)
+        log_OR_pp_v_c[i] <- RE_intercept_pg[i] + gradient_pg * 
+            (log_odds_child[i] - av_lo_child)
+        z_int_pg[i] ~ dnorm(0.00000E+00, 1)
+        RE_intercept_pg[i] <- intercept_pg + z_int_pg[i] * sigma_int
     }
-    alpha ~ dnorm(0.00000E+00, 0.001)
-    beta_pg ~ dnorm(0.00000E+00, 0.001)
-    beta_mg ~ dnorm(0.00000E+00, 0.001)
-    gamma_pg ~ dnorm(-2, 1.5)
-    gamma_mg ~ dnorm(-2, 1.5)
-    tau_RE ~ dgamma(0.001, 0.001)
-    sigma_RE <- 1/sqrt(tau_RE)
+    intercept_pg ~ dnorm(0.00000E+00, 0.16)
+    gradient_pg ~ dnorm(0.00000E+00, 0.16)
+    av_lo_child ~ dunif(-3.663562, 3.663562)
+    sigma_c ~ dunif(0.00000E+00, 2)
+    tau_c <- 1/(sigma_c * sigma_c)
+    sigma_int ~ dunif(0.00000E+00, 5)
+    tau_int <- 1/(sigma_int * sigma_int)
 }

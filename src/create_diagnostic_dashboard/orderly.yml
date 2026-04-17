@@ -1,0 +1,39 @@
+version: "1"
+
+packages:
+  - dplyr
+  - magrittr
+  - coda
+  - ggplot2
+  - bayesplot
+  - patchwork
+
+description: >
+  Prepare diagnostic dashboard data at council level. Computes fit metrics
+  (RMSE, MAE, correlation) vs observed prevalence, extracts MCMC diagnostics
+  (acceptance rate and ESS), and generates static diagnostic plots.
+
+parameters:
+  length: 1000
+  burnin_prop: 0.5
+  max_councils: 0
+  sample_seed: 0
+  make_plots: true
+
+dependencies:
+  compile_results:
+    files:
+      global_results.rds:
+        - global_results.rds
+  02_data_quality:
+    files:
+      dqa_council_monthly_nested.rds:
+        - dqa_council_monthly_nested.rds
+
+artefacts:
+  - summary: council_summary.rds
+  - timeseries: council_timeseries.rds
+  - prevalence_compare: prevalence_comparison.rds
+  - diagnostics: council_mcmc_diagnostics.rds
+  - plot_index: diagnostic_plot_index.rds
+  - diagnostic_plots: diagnostic_plots/

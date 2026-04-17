@@ -1,0 +1,25 @@
+version: "1"
+
+packages:
+  - dplyr
+  - reshape2
+  - magrittr
+
+parameters:
+  zone: ~
+  region: ~
+  length: 1000
+  burnin_prop: 0.5
+  posterior_sample_n: 100
+
+dependencies:
+  02_data_quality:
+    files:
+      dqa_council_monthly_nested.rds:
+        - dqa_council_monthly_nested.rds
+
+artefacts:
+  - summary: results_summary.rds
+  - posterior_sample: results_posterior_sample.rds
+  - props: props.rds
+  - missing: missing_councils.rds
