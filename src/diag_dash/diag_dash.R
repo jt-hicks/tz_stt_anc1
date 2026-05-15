@@ -3,6 +3,21 @@
 library(dplyr)
 library(sf)
 
+orderly::orderly_artefact(description = 'Shiny dashboard app script',
+                          files = 'diag_dash_app.R')
+orderly::orderly_artefact(description = 'Dashboard council summary data',
+                          files = 'council_summary.rds')
+orderly::orderly_artefact(description = 'Dashboard council time series data',
+                          files = 'council_timeseries.rds')
+orderly::orderly_artefact(description = 'Dashboard prevalence comparison data',
+                          files = 'prevalence_comparison.rds')
+orderly::orderly_artefact(description = 'Dashboard MCMC diagnostics data',
+                          files = 'council_mcmc_diagnostics.rds')
+orderly::orderly_artefact(description = 'Dashboard diagnostic plot index data',
+                          files = 'diagnostic_plot_index.rds')
+orderly::orderly_artefact(description = 'Dashboard diagnostic plots directory',
+                          files = 'diagnostic_plots')
+
 orderly::orderly_shared_resource('District edited Jan 2021')
 orderly::orderly_dependency(
   "create_diagnostic_dashboard",

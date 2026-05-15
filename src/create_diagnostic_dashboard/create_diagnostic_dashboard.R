@@ -7,6 +7,19 @@ library(ggplot2)
 library(bayesplot)
 library(patchwork)
 
+orderly::orderly_artefact(description = 'Council-level dashboard summary table',
+                          files = 'council_summary.rds')
+orderly::orderly_artefact(description = 'Council time series for dashboard',
+                          files = 'council_timeseries.rds')
+orderly::orderly_artefact(description = 'Observed vs fitted prevalence joins',
+                          files = 'prevalence_comparison.rds')
+orderly::orderly_artefact(description = 'Council-level MCMC diagnostics',
+                          files = 'council_mcmc_diagnostics.rds')
+orderly::orderly_artefact(description = 'Index of generated diagnostic plot files',
+                          files = 'diagnostic_plot_index.rds')
+orderly::orderly_artefact(description = 'Generated diagnostic plot directory',
+                          files = 'diagnostic_plots')
+
 orderly::orderly_shared_resource('create_diag_figs.R')
 
 params <- orderly::orderly_parameters(length = 1000,

@@ -5,6 +5,19 @@
 library(dplyr)
 library(ggplot2)
 
+orderly::orderly_artefact(description = 'Global convergence diagnostics',
+                          files = 'global_diagnostics.rds')
+orderly::orderly_artefact(description = 'Global convergence diagnostics CSV',
+                          files = 'global_diagnostics.csv')
+orderly::orderly_artefact(description = 'Zone and region summary statistics',
+                          files = 'summary_statistics.rds')
+orderly::orderly_artefact(description = 'Zone and region summary statistics CSV',
+                          files = 'summary_statistics.csv')
+orderly::orderly_artefact(description = 'Convergence variance by zone plot',
+                          files = 'variance_by_zone.png')
+orderly::orderly_artefact(description = 'Convergence variance by region plot',
+                          files = 'variance_by_region.png')
+
 # Declare dependencies
 orderly::orderly_dependency("02_data_quality", quote(latest()),
                              c('dqa_council_monthly_nested.rds'))

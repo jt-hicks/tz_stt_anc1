@@ -13,6 +13,7 @@ orderly::orderly_artefact(files=c('fig1_map_correlation_composite.png',
                                    'suppfig1_council_maps_allyears.png',
                                    'suppfig2_u5_vs_agegroups_correlation.png'),
                            description = 'Manuscript figures: council prevalence maps and correlations')
+orderly::orderly_resource(files=c('anc_allages.stan'))
 
 source('theme_base.R')
 source('addCIs.R')
@@ -242,6 +243,23 @@ print(fit_stan, pars = c(
   "av_lo_child","intercept_pg","gradient_pg",
   "sigma_c","sigma_int"
 ))
+
+# Compact Stan convergence checks
+diag_pars <- c("av_lo_child", "intercept_pg", "gradient_pg", "sigma_c", "sigma_int")
+diag_summary <- summary(fit_stan, pars = diag_pars)$summary
+diag_tbl <- data.frame(
+  parameter = rownames(diag_summary),
+  Rhat = diag_summary[, "Rhat"],
+  n_eff = diag_summary[, "n_eff"],
+  row.names = NULL
+)
+print(diag_tbl)
+
+sampler_params <- get_sampler_params(fit_stan, inc_warmup = FALSE)
+divergent <- sum(sapply(sampler_params, function(x) sum(x[, "divergent__"])))
+treedepth_hits <- sum(sapply(sampler_params, function(x) sum(x[, "treedepth__"] >= 12)))
+cat("Divergent transitions:", divergent, "\n")
+cat("Iterations at max treedepth (12):", treedepth_hits, "\n")
 
 traceplot(fit_stan,pars=c(
   "av_lo_child","intercept_pg","gradient_pg",
@@ -660,8 +678,6 @@ map_lv <- ggplot(dqa_map_2024_lv) +
   theme(legend.position = 'none',
         plot.title = element_text(hjust = 0.5, face = 'bold', size = 11),
         plot.margin = margin(2, 1, 2, 2),
-        plot.background = element_rect(fill = 'white', color = NA),
-        panel.background = element_rect(fill = 'white', color = NA))
         plot.background = element_rect(fill = 'white', color = NA),
         panel.background = element_rect(fill = 'white', color = NA))
 

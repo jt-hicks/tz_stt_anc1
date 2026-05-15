@@ -4,6 +4,15 @@
 library(magrittr)
 library(dplyr)
 
+orderly::orderly_artefact(description = 'Compiled summaries from all regions',
+                          files = 'global_results.rds')
+orderly::orderly_artefact(description = 'Compiled posterior sample draws from all regions',
+                          files = 'global_results_posterior_sample.rds')
+orderly::orderly_artefact(description = 'Compiled summaries in CSV format',
+                          files = 'global_results.csv')
+orderly::orderly_artefact(description = 'Compilation status log by zone/region',
+                          files = 'compilation_log.rds')
+
 normalize_month_to_date <- function(x) {
   if (inherits(x, "Date")) {
     return(as.Date(format(x, "%Y-%m-01")))

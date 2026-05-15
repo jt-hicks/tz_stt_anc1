@@ -5,6 +5,15 @@
 
 library(magrittr)
 
+orderly::orderly_artefact(description = 'Summarised posterior medians and 95% CIs',
+                          files = 'results_summary.rds')
+orderly::orderly_artefact(description = 'Posterior sample draws',
+                          files = 'results_posterior_sample.rds')
+orderly::orderly_artefact(description = 'Council-level parameter variance diagnostics',
+                          files = 'props.rds')
+orderly::orderly_artefact(description = 'Councils missing or failing extraction',
+                          files = 'missing_councils.rds')
+
 orderly::orderly_dependency("02_data_quality", quote(latest()),
                             c('dqa_council_monthly_nested.rds'))
 ''
@@ -33,7 +42,7 @@ if (inherits(months, "Date")) {
   month_part <- pmin(pmax(month_part, 1), 12)
   months <- as.Date(sprintf("%04d-%02d-01", year_part, month_part))
 }
-
+test_results <- readRDS('Y:/jth/tz_stt_anc1/archive/run_pmcmc/20250820-075116-9aa518bd/result.rds')
 # Define measures to extract
 measure_names <- c("prev_anc_all", "prev_05", "clininc_all", "clininc_05", "EIR", 
                    "betaa", "eff_moz_pop", "moz2human_ratio", "spz_rate")
